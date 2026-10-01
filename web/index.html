@@ -1,0 +1,106 @@
+<!--
+  SPDX-License-Identifier: Apache-2.0
+  [INPUT]: Framework Browser Session, Android App connection, schema parameters, and App event catalog.
+  [OUTPUT]: App connection, generic config controls, Assistant Event Routing, and API Markdown catalog.
+  [POS]: The Android App Adapter's user page; it owns opt-in routing policy and no audio workflow.
+  [PROTOCOL]: The App token stays backend-only; event rows must come from the live App catalog.
+-->
+<!doctype html>
+<html lang="zh-Hans">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Android App Adapter</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<main>
+  <header>
+    <div>
+      <p class="eyebrow">ADAPTER · DEV WORKSPACE</p>
+      <h1>Android App API 入口</h1>
+      <p class="lede">连接 Android App、查看自描述 API，并按 App Schema 调整可编辑参数。</p>
+    </div>
+    <a href="/admin/adapters">← Adapters</a>
+  </header>
+
+  <section class="card">
+    <div class="section-title">
+      <h2>连接</h2>
+      <span id="state" class="pill idle">未连接</span>
+    </div>
+    <label for="base-url">API Base URL（IP:Port）</label>
+    <input id="base-url" type="url" inputmode="url" autocomplete="url"
+      placeholder="http://127.0.0.1:8796">
+    <label for="token">App token</label>
+    <input id="token" type="password" data-provider-credential
+      autocomplete="new-password" placeholder="从 termux_os.app 设置页复制">
+    <div class="actions">
+      <button id="connect" class="primary" type="button">连接并加载 API</button>
+      <button id="refresh" type="button" disabled>刷新 API</button>
+      <button id="disconnect" class="quiet" type="button" disabled>断开</button>
+    </div>
+    <p id="message" class="message">token 只提交给 Adapter 后端；浏览器不保存，读取接口也不会返回明文。</p>
+  </section>
+
+  <section id="parameters-card" class="card" hidden>
+    <div class="section-title">
+      <div>
+        <h2>App Parameters</h2>
+        <p id="parameters-meta" class="subtle">从 App Schema 读取可编辑参数。</p>
+      </div>
+      <span id="parameters-count" class="pill idle">等待读取</span>
+    </div>
+    <p id="parameters-message" class="message" role="status" aria-live="polite"></p>
+    <div id="parameters-groups"></div>
+  </section>
+
+  <section id="assistant-routing-card" class="card" hidden>
+    <div class="section-title">
+      <div>
+        <h2>Assistant Event Routing</h2>
+        <p class="subtle">App 只发送 assistant.primary 与 source；路由策略保存在 Adapter。</p>
+      </div>
+      <span class="pill idle">可选</span>
+    </div>
+    <p class="parameter-hint">Router ingress：<code id="assistant-router-ingress"></code></p>
+    <p id="assistant-current-endpoint" class="message" role="status" aria-live="polite"></p>
+    <div class="actions">
+      <button id="assistant-use-router" type="button">Use Adapter Router</button>
+    </div>
+    <label for="assistant-default-endpoint">Default assistant endpoint</label>
+    <input id="assistant-default-endpoint" type="url" inputmode="url" autocomplete="off"
+      placeholder="http://127.0.0.1:9001/assistant">
+    <p class="parameter-hint">只接受 loopback 明文 HTTP（localhost、127.0.0.0/8 或 ::1）；只转发 GET/POST，拒绝 redirect。</p>
+    <p id="assistant-catalog-warning" class="parameter-warning" role="status" hidden></p>
+    <div id="assistant-event-rows"></div>
+    <div class="actions">
+      <button id="assistant-routing-save" class="primary" type="button">保存事件路由</button>
+    </div>
+    <p id="assistant-routing-message" class="message" role="status" aria-live="polite"></p>
+  </section>
+
+  <section id="catalog-card" class="card" hidden>
+    <div class="section-title">
+      <div>
+        <h2>App API 目录</h2>
+        <p id="catalog-meta" class="subtle"></p>
+      </div>
+      <span class="pill ok">已认证</span>
+    </div>
+    <pre id="catalog" aria-label="App API Markdown"></pre>
+  </section>
+
+  <section class="card compact">
+    <h2>边界</h2>
+    <ul>
+      <li>提供 <code>android.app.api</code> Capability：base URL、token 与 API Markdown。</li>
+      <li>调用方取得描述后直接调用 App；Assistant 路由仅在用户显式启用后由 Adapter 代理。</li>
+      <li>不实现 PCM、RMS、speech、TTS 或任何音频工作流。</li>
+    </ul>
+  </section>
+</main>
+<script src="/admin/session.js"></script>
+<script type="module" src="app.js"></script>
+</body>
+</html>
