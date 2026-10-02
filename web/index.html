@@ -1,0 +1,165 @@
+<!--
+  SPDX-License-Identifier: Apache-2.0
+  [INPUT]: Framework Browser Session, Android App connection, schema parameters, and App event catalog.
+  [OUTPUT]: Five tabbed views including read-only App listener facts and Framework/Package ownership boundaries.
+  [POS]: The Android App Adapter's user page; it owns opt-in route policy and no audio workflow.
+  [PROTOCOL]: The App token stays backend-only; event rows come from the live App catalog; Diagnostics stays read-only.
+-->
+<!doctype html>
+<html lang="zh-Hans">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Android App Adapter</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<main>
+  <header>
+    <div>
+      <p class="eyebrow">ADAPTER · DEV WORKSPACE</p>
+      <h1>Android App API 入口</h1>
+      <p class="lede">连接 Android App、查看自描述 API，并按 App Schema 调整可编辑参数。</p>
+    </div>
+    <a href="/admin/adapters">← Adapters</a>
+  </header>
+
+  <nav class="tablist" role="tablist" aria-label="Android App Adapter pages">
+    <button id="tab-connection" class="tab" type="button" role="tab" aria-selected="true"
+      aria-controls="panel-connection" tabindex="0" data-tab="connection">Connection</button>
+    <button id="tab-parameters" class="tab" type="button" role="tab" aria-selected="false"
+      aria-controls="panel-parameters" tabindex="-1" data-tab="parameters">App Parameters</button>
+    <button id="tab-assistant-routing" class="tab" type="button" role="tab" aria-selected="false"
+      aria-controls="panel-assistant-routing" tabindex="-1" data-tab="assistant-routing">Assistant Routing</button>
+    <button id="tab-api-catalog" class="tab" type="button" role="tab" aria-selected="false"
+      aria-controls="panel-api-catalog" tabindex="-1" data-tab="api-catalog">App API Catalog</button>
+    <button id="tab-diagnostics" class="tab" type="button" role="tab" aria-selected="false"
+      aria-controls="panel-diagnostics" tabindex="-1" data-tab="diagnostics">Diagnostics / Boundary</button>
+  </nav>
+
+  <section id="panel-connection" class="tab-panel" role="tabpanel" aria-labelledby="tab-connection" tabindex="0">
+    <section class="card">
+      <div class="section-title">
+        <h2>连接</h2>
+        <span id="state" class="pill idle">未连接</span>
+      </div>
+      <label for="base-url">Adapter connection target (App API URL)</label>
+      <input id="base-url" type="url" inputmode="url" autocomplete="url"
+        placeholder="http://127.0.0.1:8796">
+      <p class="parameter-hint">This changes only the Adapter target. To change the App API listener port, use the App Settings “App API listener” card. Connecting here never changes the App listener.</p>
+      <dl class="facts connection-facts">
+        <div><dt>App-reported listener</dt><dd id="connection-listener">Not connected</dd></div>
+        <div><dt>App-reported listener port</dt><dd id="connection-listener-port">Not reported</dd></div>
+      </dl>
+      <p id="connection-target-diagnostic" class="message" role="status" aria-live="polite">No live App connection is being checked.</p>
+      <label for="token">App token</label>
+      <input id="token" type="password" data-provider-credential
+        autocomplete="new-password" placeholder="从 termux_os.app 设置页复制">
+      <div class="actions">
+        <button id="connect" class="primary" type="button">连接并加载 API</button>
+        <button id="refresh" type="button" disabled>刷新 API</button>
+        <button id="disconnect" class="quiet" type="button" disabled>断开</button>
+      </div>
+      <p id="message" class="message">token 只提交给 Adapter 后端；浏览器不保存，读取接口也不会返回明文。</p>
+    </section>
+  </section>
+
+  <section id="panel-parameters" class="tab-panel" role="tabpanel" aria-labelledby="tab-parameters" tabindex="0" hidden>
+    <section id="parameters-card" class="card" hidden>
+      <div class="section-title">
+        <div>
+          <h2>App Parameters</h2>
+          <p id="parameters-meta" class="subtle">从 App Schema 读取归属通用面板的参数。</p>
+        </div>
+        <span id="parameters-count" class="pill idle">等待读取</span>
+      </div>
+      <p id="parameters-message" class="message" role="status" aria-live="polite"></p>
+      <div id="parameters-groups"></div>
+    </section>
+  </section>
+
+  <section id="panel-assistant-routing" class="tab-panel" role="tabpanel"
+    aria-labelledby="tab-assistant-routing" tabindex="0" hidden>
+    <section id="assistant-routing-card" class="card" hidden>
+      <div class="section-title">
+        <div>
+          <h2>Assistant Event Routing</h2>
+          <p class="subtle">App 只发送 assistant.primary 与 source；逐事件路由策略保存在 Adapter。</p>
+        </div>
+        <span class="pill idle">可选</span>
+      </div>
+      <p class="parameter-hint">Router ingress：<code id="assistant-router-ingress"></code></p>
+      <p id="assistant-current-endpoint" class="message" role="status" aria-live="polite"></p>
+      <div class="actions">
+        <button id="assistant-use-router" type="button">Use Adapter Router</button>
+      </div>
+      <label for="assistant-default-endpoint">Default assistant endpoint</label>
+      <input id="assistant-default-endpoint" type="url" inputmode="url" autocomplete="off"
+        placeholder="http://127.0.0.1:9001/assistant">
+      <p class="parameter-hint">只接受 loopback 明文 HTTP（localhost、127.0.0.0/8 或 ::1）；只转发 GET/POST，拒绝 redirect。</p>
+      <p id="assistant-catalog-warning" class="parameter-warning" role="status" hidden></p>
+      <div id="assistant-event-rows"></div>
+      <div class="actions">
+        <button id="assistant-routing-save" class="primary" type="button">保存事件路由</button>
+      </div>
+      <p id="assistant-routing-message" class="message" role="status" aria-live="polite"></p>
+    </section>
+    <section id="assistant-app-parameters" class="card" hidden>
+      <div class="section-title">
+        <div>
+          <h2>App assistant.primary 设置</h2>
+          <p class="subtle">这些 App Schema 字段归入 Assistant Routing 专页，不重复显示在通用参数列表。</p>
+        </div>
+      </div>
+      <div id="assistant-parameters-groups"></div>
+    </section>
+  </section>
+
+  <section id="panel-api-catalog" class="tab-panel" role="tabpanel" aria-labelledby="tab-api-catalog" tabindex="0" hidden>
+    <section id="catalog-card" class="card" hidden>
+      <div class="section-title">
+        <div>
+          <h2>App API 目录</h2>
+          <p id="catalog-meta" class="subtle"></p>
+        </div>
+        <span class="pill ok">已认证</span>
+      </div>
+      <pre id="catalog" aria-label="App API Markdown"></pre>
+    </section>
+  </section>
+
+  <section id="panel-diagnostics" class="tab-panel" role="tabpanel" aria-labelledby="tab-diagnostics" tabindex="0" hidden>
+    <section class="card compact">
+      <div class="section-title">
+        <h2>Diagnostics</h2>
+        <span id="diagnostics-state" class="pill idle">未连接</span>
+      </div>
+      <p id="diagnostics-detail" class="message">Connection facts are read-only. The App token value is never shown.</p>
+      <dl class="facts diagnostic-facts">
+        <div><dt>Connection</dt><dd id="diag-connection-state">Disconnected</dd></div>
+        <div><dt>Adapter connection target</dt><dd id="diag-target">Not configured</dd></div>
+        <div><dt>App-reported listener</dt><dd id="diag-listener">Not reported</dd></div>
+        <div><dt>App-reported listener port</dt><dd id="diag-listener-port">Not reported</dd></div>
+        <div><dt>App token</dt><dd id="diag-token-state">Not set</dd></div>
+        <div><dt>Connected App version</dt><dd id="diag-app-version">Not available</dd></div>
+        <div><dt>Connected schema version</dt><dd id="diag-schema-version">Not available</dd></div>
+        <div><dt>Assistant events in App catalog</dt><dd id="diag-assistant-events">Not available</dd></div>
+        <div><dt>Generic App fields</dt><dd id="diag-generic-fields">Not available</dd></div>
+      </dl>
+    </section>
+    <section class="card compact">
+      <h2>Ownership boundaries</h2>
+      <ul>
+        <li><strong>Framework / Package route:</strong> Framework serves this Adapter page through Package dispatch; that page route is separate from the App API listener.</li>
+        <li><strong>Framework/Core:</strong> Framework Core does not own App product workflow. There is no Framework Core <code>/assistant/call</code> alias.</li>
+        <li><strong>Assistant routing:</strong> the Adapter owns Assistant route policy; the App provides the event catalog and action envelope.</li>
+        <li><strong>UI ownership:</strong> App core settings stay in App; Speech product settings stay in termux-speech; Adapter generic parameters only render fields marked <code>ADAPTER_GENERIC_UI</code>.</li>
+        <li><strong>Capability:</strong> trusted Package callers can obtain <code>android.app.api</code>; the Adapter does not implement PCM, RMS, speech, TTS, or audio workflows.</li>
+      </ul>
+    </section>
+  </section>
+</main>
+<script src="/admin/session.js"></script>
+<script type="module" src="app.js"></script>
+</body>
+</html>
